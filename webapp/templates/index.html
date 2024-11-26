@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Network IDS Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        #traffic-chart {
+            height: 300px;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .malicious {
+            background-color: #ffcccc;
+        }
+        .legitimate {
+            background-color: #ccffcc;
+        }
+    </style>
+</head>
+<body>
+    <h1>Network Intrusion Detection System</h1>
+    
+    <div id="traffic-chart">
+        <canvas id="trafficChart"></canvas>
+    </div>
+
+    <div id="traffic-stats">
+        <h2>Real-time Traffic Statistics</h2>
+        <p>Total Packets: <span id="total-packets">0</span></p>
+        <p>Malicious Packets: <span id="malicious-packets">0</span></p>
+    </div>
+
+    <table id="traffic-table">
+        <thead>
+            <tr>
+                <th>Source IP</th>
+                <th>Destination IP</th>
+                <th>Protocol</th>
+                <th>Packet Length</th>
+                <th>Traffic Type</th>
+            </tr>
+        </thead>
+        <tbody id="traffic-body"></tbody>
+    </table>
+
+    <script>
+        const socket = io();
+        const trafficChart = new Chart(document.getElementById('trafficChart'), {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Malicious Packets',
+                    data: [],
+                    borderColor: 'red'
+                }]
+            }
+        });
+
+        socket.on('traffic_update', (data) => {
+            // Update statistics
+            document.getElementById('total-packets').textContent = data.total_packets;
+            document.getElementById('malicious-packets').textContent = data.malicious_packets;
+
+            // Update chart
+            const now = new Date().toLocaleTimeString();
+            trafficChart.data.labels.push(now);
+            trafficChart.data.datasets[0].data.push(data.malicious_packets);
+            if (trafficChart.data.labels.length > 10) {
+                trafficChart.data.labels.shift();
+                trafficChart.data.datasets[0].data.shift();
+            }
+            trafficChart.update();
+
+            // Update traffic table
+            const trafficBody = document.getElementById('traffic-body');
+            trafficBody.innerHTML = ''; // Clear previous entries
+            data.traffic_details.forEach(packet => {
+                const row = trafficBody.insertRow();
+                row.insertCell(0).textContent = packet.src_ip;
+                row.insertCell(1).textContent = packet.dst_ip;
+                row.insertCell(2).textContent = packet.protocol;
+                row.insertCell(3).textContent = packet.packet_length;
+                const typeCell = row.insertCell(4);
+                typeCell.textContent = packet.traffic_type;
+                row.className = packet.traffic_type === 'malicious' ? 'malicious' : 'legitimate';
+            });
+        });
+    </script>
+</body>
+</html>
